@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+<title>Intercom Touch (LISTEN por entrada)</title>
+<style>
+:root{ --bg:#0b0b0f; --panel:#14141b; --text:#e7e7ee; --muted:#9aa0aa; --ok:#16a34a; --danger:#dc2626; --line:#23233a; --blue:#3b82f6; }
+*{ box-sizing:border-box; -webkit-tap-highlight-color: transparent; }
+html,body{ margin:0; height:100%; width:100%; overflow:hidden; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,Inter,Roboto,sans-serif; }
+html{ font-size: clamp(14px, 2.2vh, 18px); }
+.wrap{ height:100vh; width:100vw; padding:1.0vh 1.0vw; display:flex; flex-direction:column; gap:1vh; }
+header{ flex:0 0 auto; display:flex; align-items:center; justify-content:space-between; padding:1.1vh 1.3vw; background:var(--panel); border:1px solid var(--line); border-radius:14px; min-height:8vh; }
+.tabs{ display:flex; gap:.6vw; }
+.tab{ padding:.9vh 1.1vw; border-radius:10px; background:#1a1a28; border:1px solid #2a2a3e; cursor:pointer; color:#cfd2dc; font-weight:700; }
+.tab[aria-selected="true"]{ background:#243048; color:#fff; border-color:#2e3d62; }
+.pill{ padding:.6vh 1vw; border:1px solid #2f2f47; border-radius:999px; background:#1b1b28; color:#c6c8d2; font-size:.9rem; display:flex; gap:.6vw; align-items:center; }
+.dot{ width:.8rem; height:.8rem; border-radius:999px; background:#6b7280; display:inline-block; }
+.dot.ok{ background:#16a34a; } .dot.bad{ background:#dc2626; }
+.content{ flex:1 1 auto; min-height:0; display:flex; gap:1vw; }
+.grid{ display:grid; gap:1vw; width:100%; height:100%; grid-template-columns:repeat(4, 1fr); grid-template-rows:repeat(2, 1fr); }
+@media (max-width: 1400px) { .grid{ grid-template-columns:repeat(2, 1fr); grid-template-rows:repeat(4, 1fr); } }
+.card{ display:grid; grid-template-rows:auto 1fr auto auto; gap:1.0vh; background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:1.0vh 1.0vw; min-width:0; }
+.row{ display:flex; align-items:center; justify-content:space-between; gap:1vw; min-width:0; }
+.label{ font-weight:800; font-size:1.1rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.btn{ border:none; border-radius:10px; padding:.8vh 1vw; background:#232333; color:#e7e7ee; font-weight:700; cursor:pointer; }
+.meter{ position:relative; height:2.4vh; width:100%; background:#12121a; border-radius:999px; overflow:hidden; border:1px solid #2b2b3b; }
+.meter>div{ height:100%; width:0%; background:linear-gradient(90deg,#22c55e,#eab308,#ef4444); transition:width .08s linear; }
+.pct{ min-width:5vw; text-align:right; font-variant-numeric:tabular-nums; color:#c6c8d2; font-size:1.0rem; }
+.talk{ width:100%; padding:1.8vh 1.0vw; font-size:1.6rem; font-weight:900; border-radius:12px; border:1px solid #2b2b3b; cursor:pointer; letter-spacing:.03em; }
+.talk[data-active="false"]{ background:var(--ok); } .talk[data-active="true"]{ background:var(--danger); }
+.listen{ width:100%; padding:1.2vh 1.0vw; font-size:1.2rem; font-weight:800; border-radius:12px; border:1px solid #2b2b3b; cursor:pointer; letter-spacing:.02em; background:var(--blue); }
+.listen[data-active="true"]{ filter:brightness(0.85); }
+.mixer{ flex:1; display:flex; flex-direction:column; gap:1vh; width:100%; height:100%; }
+.mbar{ display:flex; align-items:center; gap:1vw; flex-wrap:wrap; }
+.mx-wrap{ flex:1; min-height:0; overflow:auto; border:1px solid var(--line); border-radius:14px; }
+.mx-table{ width:100%; border-collapse:collapse; }
+.mx-table th, .mx-table td{ border:1px solid #2a2a3e; padding:.6vh .5vw; text-align:center; }
+.mx-table th{ background:#1a1a28; position:sticky; top:0; }
+.mx-table input{ width:6.5ch; text-align:center; border-radius:6px; border:1px solid #2f2f47; background:#101018; color:#e7e7ee; padding:.5vh .4vw; font-size:1rem; }
+.route{ flex:1; display:flex; flex-direction:column; gap:1vh; }
+.gridRoute{ display:grid; grid-template-columns:repeat(4, 1fr); gap:1vw; }
+.routeCard{ background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:1.0vh 1.0vw; display:flex; flex-direction:column; gap:.8vh; }
+select{ width:100%; padding:.7vh 0.9vw; border-radius:10px; border:1px solid #2f2f47; background:#101018; color:#e7e7ee; font-size:1.0rem; }
+.hint{ color:#9aa0aa; font-size:.95rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="tabs" role="tablist" aria-label="Vistas">
+      <button id="tabCtrl" class="tab" role="tab" aria-selected="true">Control</button>
+      <button id="tabMx" class="tab" role="tab" aria-selected="false">Matriz</button>
+      <button id="tabRt" class="tab" role="tab" aria-selected="false">Ruteo</button>
+    </div>
+    <div class="pill"><span class="dot" id="dotws"></span><span id="cfgTxt">Cargando…</span></div>
+  </header>
+
+  <div class="content">
+    <section id="viewCtrl" class="grid"></section>
+    <section id="viewMx" class="mixer" style="display:none"></section>
+    <section id="viewRt" class="route" style="display:none"></section>
+  </div>
+</div>
+
+<script>
+(function(){
+  const st = { ws:null, labels:[], talking:[], listening:[], levels:[], NIN:8, NOUT:8, MIC:0, BED:1, M:null, PHYS:8, ROUTE:[], ALL:7, LIN:[], LOUT:[], LENA:[] };
+  const el=(t,a={},...k)=>{const e=document.createElement(t);for(const [x,v] of Object.entries(a)){if(x==='style')Object.assign(e.style,v);else if(x.startsWith('on'))e.addEventListener(x.slice(2),v);else e.setAttribute(x,v)}for(const i of k)e.appendChild(typeof i==='string'?document.createTextNode(i):i);return e};
+  const G=(s)=>document.querySelector(s);
+  const viewCtrl=G('#viewCtrl'), viewMx=G('#viewMx'), viewRt=G('#viewRt'), tabCtrl=G('#tabCtrl'), tabMx=G('#tabMx'), tabRt=G('#tabRt'), cfgTxt=G('#cfgTxt'), dotws=G('#dotws');
+
+  function setTab(t){ const tabs=[tabCtrl,tabMx,tabRt], views=[viewCtrl,viewMx,viewRt]; tabs.forEach((b,i)=>b.setAttribute('aria-selected', b===t?'true':'false')); views.forEach((v,i)=>v.style.display = (tabs[i]===t? (v===viewCtrl?'grid':'flex') : 'none')); }
+  tabCtrl.onclick=()=>setTab(tabCtrl); tabMx.onclick=()=>setTab(tabMx); tabRt.onclick=()=>{ renderRoute(); setTab(tabRt); };
+
+  async function J(url,opt){ const r=await fetch(url,opt); if(!r.ok) throw new Error(r.status); return r.json(); }
+  async function loadAll(){
+    const s = await J('/api/state').catch(()=>null);
+    const c = await J('/api/config').catch(()=>null);
+    const r = await J('/api/routing').catch(()=>null);
+    const lc= await J('/api/listen_config').catch(()=>null);
+    if(s){ st.NIN=s.num_inputs; st.NOUT=s.num_outputs; st.MIC=s.mic_index; st.BED=s.bed_index; st.M=s.matrix; st.labels=s.channels.map(x=>x.label); st.ALL = s.all_index ?? (st.NOUT-1); }
+    if(c){ st.PHYS=c.phys_out||st.NOUT; st.talking=c.talking||Array(st.NOUT).fill(false); st.listening=c.listening||Array(st.NOUT).fill(false); if(c.all_index!=null) st.ALL=c.all_index; }
+    if(r){ st.ROUTE = r.map||Array.from({length:st.NOUT}, (_,i)=>i); if(r.all_index!=null) st.ALL=r.all_index; }
+    if(lc){ st.LIN = lc.listen_in; st.LOUT = lc.listen_out_phys; st.LENA = lc.listen_enabled; if(lc.phys_out) st.PHYS = lc.phys_out; if(lc.all_index!=null) st.ALL = lc.all_index; st.listening = lc.listening || st.listening; }
+    if(!st.labels || st.labels.length!==st.NOUT) st.labels = Array.from({length:st.NOUT}, (_,i)=> i===st.ALL?'TODOS':`Canal ${i+1}`);
+    cfgTxt.textContent = `IN ${st.NIN} · OUT ${st.NOUT} · Físicas=${st.PHYS} · MIC=IN${st.MIC+1} · BED=IN${st.BED+1} · ALL=OUT${st.ALL+1}`;
+
+    renderCtrl(); renderMx(); renderRoute(); connectWS();
+
+    setInterval(async ()=>{ try{ const m=await J('/api/meters'); if(m && Array.isArray(m.levels)){ st.levels = m.levels; renderLevels(); } }catch(e){} }, 300);
+  }
+
+  function sendTalk(i,val){ try{ st.ws && st.ws.readyState===1 && st.ws.send(JSON.stringify({type:'talk', id:i+1, state:!!val})); }catch(e){} }
+  function sendListen(i,val){ try{ st.ws && st.ws.readyState===1 && st.ws.send(JSON.stringify({type:'listen', id:i+1, state:!!val})); }catch(e){} }
+  function saveMatrix(){ return J('/api/matrix',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({matrix:st.M})}).catch(()=>{}); }
+  function saveRoute(){ return J('/api/routing',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({map:st.ROUTE})}).catch(()=>{}); }
+  function saveListenCfg(){ return J('/api/listen_config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({listen_in:st.LIN, listen_out_phys:st.LOUT, listen_enabled:st.LENA})}).catch(()=>{}); }
+
+  function renderCtrl(){
+    viewCtrl.innerHTML='';
+    for(let i=0;i<st.NOUT;i++){
+      const card=el('div',{class:'card'});
+      const title = (i===st.ALL? (st.labels[i]||'TODOS') : (st.labels[i]||`Canal ${i+1}`));
+      const rowTop=el('div',{class:'row'}, el('div',{class:'label'}, title), (i===st.ALL? el('span',{class:'hint'},'Hablar a todos'): el('span',{})) );
+      const rowMeter=el('div',{class:'row'}); const meter=el('div',{class:'meter'}); const bar=el('div',{}); meter.appendChild(bar); const pct=el('div',{class:'pct'},'0%'); rowMeter.appendChild(meter); rowMeter.appendChild(pct);
+      const talk=el('button',{class:'talk','data-active': String(!!st.talking[i])}, i===st.ALL?'TALK ALL':'TALK');
+      const listen=el('button',{class:'listen','data-active': String(!!st.listening[i]), disabled: i===st.ALL || !st.LENA?.[i]}, 'LISTEN');
+
+      const upd=()=>{
+        talk.setAttribute('data-active', st.talking[i]?'true':'false');
+        talk.textContent=(i===st.ALL?(st.talking[i]?'TALK ALL (activo)':'TALK ALL'):(st.talking[i]?'TALK (activo)':'TALK'));
+        listen.setAttribute('data-active', st.listening[i]?'true':'false');
+        listen.disabled = (i===st.ALL) || !st.LENA?.[i];
+        listen.textContent = listen.disabled ? 'LISTEN (off)' : (st.listening[i]?'LISTEN (activo)':'LISTEN');
+      };
+      talk.onclick=()=>{ st.talking[i]=!st.talking[i]; sendTalk(i,st.talking[i]); upd(); };
+      listen.onclick=()=>{ if(listen.disabled) return; st.listening[i]=!st.listening[i]; sendListen(i,st.listening[i]); upd(); };
+
+      card.appendChild(rowTop); card.appendChild(rowMeter); card.appendChild(talk); card.appendChild(listen);
+      viewCtrl.appendChild(card); card._idx=i; card._bar=bar; card._pct=pct; card._btn=talk; upd();
+    }
+    renderLevels();
+  }
+
+  function renderLevels(){
+    for(const card of viewCtrl.children){
+      const i=card._idx, lvl = Math.max(0, Math.min(1, Number(st.levels?.[i]||0)));
+      card._bar.style.width = Math.round(lvl*100)+'%';
+      card._pct.textContent = Math.round(lvl*100)+'%';
+      card._btn.setAttribute('data-active', st.talking[i]?'true':'false');
+    }
+  }
+
+  function renderMx(){
+    viewMx.innerHTML='';
+    const bar = el('div',{class:'mbar'}, el('span',{},'Matriz 8×8 (OUT8=Todos bloqueado)'), el('button',{class:'btn',onclick:()=>saveMatrix()},'Guardar'));
+    const wrap=el('div',{class:'mx-wrap'}); const tbl=el('table',{class:'mx-table'});
+    const thead=el('thead'); const trh=el('tr'); trh.appendChild(el('th',{},'Salida \\\\ Entrada'));
+    for(let c=0;c<st.NIN;c++){ const name = c===st.MIC?`IN${c+1} (Mic)`: (c===st.BED?`IN${c+1} (Bed)`: `IN${c+1}`); trh.appendChild(el('th',{},name)); }
+    thead.appendChild(trh); tbl.appendChild(thead);
+    const tbody=el('tbody');
+    for(let r=0;r<st.NOUT;r++){
+      const tr=el('tr'); tr.appendChild(el('th',{}, r===st.ALL?`OUT${r+1} (Todos)`:`OUT${r+1}`));
+      for(let c=0;c<st.NIN;c++){
+        const inp=el('input',{type:'number',step:'0.1',min:'-2',max:'2'}); inp.value = (Math.abs(st.M[r][c])<1e-6?0:st.M[r][c]);
+        if(r===st.ALL){ inp.disabled=true; inp.title='Bloqueado (Todos)'; }
+        else { inp.onchange=()=>{ const v=parseFloat(inp.value); if(!isNaN(v)) st.M[r][c]=Math.max(-2,Math.min(2,v)); }; }
+        tr.appendChild(el('td',{}, inp));
+      }
+      tbody.appendChild(tr);
+    }
+    tbl.appendChild(tbody); wrap.appendChild(tbl); viewMx.appendChild(bar); viewMx.appendChild(wrap);
+  }
+
+  function renderRoute(){
+    viewRt.innerHTML='';
+    const top=el('div',{class:'mbar'}, el('span',{},'Ruteo: OUT1..7 → salida física (OUT8=Todos sin ruteo). Config LISTEN (entrada → salida física) por canal abajo.'), el('button',{class:'btn',onclick:()=>{saveRoute(); saveListenCfg();}},'Guardar todo'));
+    const grid=el('div',{class:'gridRoute'});
+    for(let o=0;o<st.NOUT;o++){
+      const card=el('div',{class:'routeCard'});
+      if(o===st.ALL){
+        card.appendChild(el('div',{class:'label'},`OUT${o+1} (Todos)`));
+        card.appendChild(el('div',{class:'hint'},'TALK ALL: envía Mic a todas las salidas. LISTEN no disponible en Todos.'));
+      }else{
+        card.appendChild(el('div',{class:'label'},`OUT${o+1}`));
+        // ruteo OUT->salida física
+        const selRoute=el('select',{});
+        for(let p=0;p<Math.max(st.PHYS, st.NOUT);p++){ const opt=el('option',{value:String(p)},`Salida física CH ${p+1}`); if(st.ROUTE[o]===p) opt.selected=true; selRoute.appendChild(opt); }
+        selRoute.onchange=()=>{ st.ROUTE[o]=parseInt(selRoute.value,10); };
+        card.appendChild(selRoute);
+        // listen enable
+        const ena=el('select',{}); [["1","LISTEN activado"],["0","LISTEN desactivado"]].forEach(([v,t])=>{const op=el('option',{value:v},t); if((st.LENA?.[o]?1:0)==parseInt(v)) op.selected=true; ena.appendChild(op);});
+        ena.onchange=()=>{ st.LENA[o]= ena.value==="1"; };
+        card.appendChild(ena);
+        // listen entrada
+        const selIn=el('select',{});
+        for(let p=0;p<st.NIN;p++){ const opt=el('option',{value:String(p)},`LISTEN: Entrada IN ${p+1}`); if((st.LIN?.[o]??o)===p) opt.selected=true; selIn.appendChild(opt); }
+        selIn.onchange=()=>{ st.LIN[o]=parseInt(selIn.value,10); };
+        card.appendChild(selIn);
+        // listen salida física
+        const selOut=el('select',{});
+        for(let p=0;p<Math.max(st.PHYS, st.NOUT);p++){ const opt=el('option',{value:String(p)},`LISTEN → Salida física CH ${p+1}`); if((st.LOUT?.[o]??0)===p) opt.selected=true; selOut.appendChild(opt); }
+        selOut.onchange=()=>{ st.LOUT[o]=parseInt(selOut.value,10); };
+        card.appendChild(selOut);
+      }
+      grid.appendChild(card);
+    }
+    viewRt.appendChild(top); viewRt.appendChild(grid);
+  }
+
+  function connectWS(){
+    const url=(location.protocol==='https:'?'wss://':'ws://')+location.host+'/ws';
+    try{
+      const ws=new WebSocket(url); st.ws=ws;
+      ws.onopen=()=>{ dotws.classList.remove('bad'); dotws.classList.add('ok'); };
+      ws.onmessage=(ev)=>{ try{
+        const m=JSON.parse(ev.data);
+        if(m.type==='hello'){ if(m.all_index!=null) st.ALL=m.all_index; }
+        if(m.type==='state'){ st.talking = m.channels.slice(0, st.NOUT).map(Boolean); renderLevels(); }
+        if(m.type==='listen_state'){ st.listening = m.listening.slice(0, st.NOUT).map(Boolean); renderLevels(); }
+        if(m.type==='meters'){ st.levels = m.levels.slice(0, st.NOUT).map(Number); renderLevels(); }
+      }catch(e){} };
+      ws.onclose=()=>{ dotws.classList.remove('ok'); dotws.classList.add('bad'); setTimeout(connectWS,1200); };
+    }catch(e){ dotws.classList.remove('ok'); dotws.classList.add('bad'); setTimeout(connectWS,1500); }
+  }
+
+  loadAll();
+})();
+</script>
+</body>
+</html>
